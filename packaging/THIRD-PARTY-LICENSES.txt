@@ -1,0 +1,110 @@
+Creative Studio — third-party software notices and licenses
+===========================================================
+
+This AppImage bundles third-party software. The application itself is
+licensed under the MIT License (see the LICENSE file distributed alongside
+this notice). The bundled components and their licenses are listed below;
+where a full license text is long, the official URL is given and is also
+reachable from the upstream project.
+
+1. Qt 6.8 (bundled via PySide6) — including QtCore, QtGui, QtWidgets,
+   QtMultimedia, QtMultimediaWidgets, QtNetwork, QtOpenGL and the shipped
+   platform and multimedia plugins.
+   License: GNU Lesser General Public License v3.0 or later (LGPL-3.0),
+   with the Qt open-source obligations. Source code:
+   https://www.qt.io/download/open-source / https://code.qt.io
+   Under LGPL-3.0 sections 4(d)/6 you may obtain the corresponding Qt source
+   used for these binaries from the URL above (PySide6 6.8.3 ships the
+   unmodified upstream Qt 6.8.3 libraries). License text:
+   https://www.gnu.org/licenses/lgpl-3.0.txt
+   https://doc.qt.io/qt-6/lgpl.html
+
+2. PySide6 6.8.3 and shiboken6 6.8.3 (Python bindings for Qt 6).
+   License: LGPL-3.0-or-later (or GPL-3.0 alternatives offered by Qt Company
+   licensing). Same source availability as above.
+   https://pypi.org/project/PySide6/
+
+3. Python 3.9 runtime (bundled by PyInstaller into the packaged
+   application).
+   License: Python Software Foundation License Version 2 (PSF-2.0).
+   Full text: https://docs.python.org/3/license.html
+   ---
+   PSF LICENSE AGREEMENT FOR PYTHON 3.9.5
+   1. This LICENSE AGREEMENT is between the Python Software Foundation
+      ("PSF"), and the Individual or Organization ("Licensee") accessing and
+      otherwise using this software ("Python") in source or binary form and
+      its associated documentation.
+   2. Subject to the terms and conditions of this License Agreement, PSF
+      hereby grants Licensee a nonexclusive, royalty-free, world-wide
+      license to reproduce, analyze, test, perform and/or display publicly,
+      prepare derivative works, distribute, and otherwise use Python alone
+      or in any derivative version, provided, however, that PSF's License
+      Agreement and PSF's notice of copyright, i.e., "Copyright (c) 2001,
+      2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012,
+      2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Python Software
+      Foundation; All Rights Reserved" are retained in Python alone or in
+      any derivative version prepared by Licensee.
+   3. In the event Licensee prepares a derivative work that is based on or
+      incorporates Python or any part thereof, and wants to make the
+      derivative work available to others as provided herein, then Licensee
+      hereby agrees to include in any such work a brief summary of the
+      changes made to Python.
+   4. PSF is making Python available to Licensee on an "AS IS" basis. PSF
+      MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF
+      EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND DISCLAIMS ANY
+      REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS FOR ANY
+      PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT INFRINGE ANY
+      THIRD PARTY RIGHTS.
+   5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON FOR
+      ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS A RESULT
+      OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON, OR ANY
+      DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+   6. This License Agreement will automatically terminate upon a material
+      breach of its terms and conditions.
+   7. Nothing in this License Agreement shall be deemed to create any
+      relationship of agency, partnership, or joint venture between PSF and
+      Licensee. This License Agreement does not grant permission to use PSF
+      trademarks or trade name in a trademark sense to endorse or promote
+      products or services of Licensee, or any third party.
+   8. By copying, installing or otherwise using Python, Licensee agrees to
+      be bound by the terms and conditions of this License Agreement.
+   ---
+
+4. PyInstaller 6.12.0 (packaging tool; its bootloader is embedded in the
+   bundled application).
+   License: GPLv2-or-later WITH the PyInstaller bootloader exception (the
+   exception permits distributing the bootloader linked with the packaged
+   application without obligating the application itself to GPLv2).
+   Full text and exception:
+   https://github.com/pyinstaller/pyinstaller/blob/v6.12.0/COPYING.txt
+
+5. FFmpeg n8.1.3 (ffmpeg and ffprobe executables are bundled in
+   usr/creative-studio/bin/), built from the BtbN FFmpeg-Builds project
+   (linux64-gpl profile).
+   As configured (--enable-gpl, with libx264) FFmpeg is licensed under the
+   GNU General Public License version 2 or later (GPL-2.0-or-later).
+   Source code: https://ffmpeg.org/download.html
+   License text: https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+   The complete configure flags of the exact build are printed by running
+   the bundled binary as: ffmpeg -version
+
+6. x264 (H.264 encoder library, statically linked into the bundled
+   ffmpeg).
+   License: GPL-2.0-or-later. Source: https://www.videolan.org/developers/x264.html
+
+7. DejaVu fonts (Bitstream Vera derivative; used for on-screen text when no
+   system font configuration exists).
+   License: Bitstream Vera license + Arev font additions (permissive; see
+   https://dejavu-fonts.github.io/License.html).
+
+8. Python packages also embedded by PyInstaller at build time:
+   altgraph 0.17.5 (MIT), importlib-metadata 8.7.1 (Apache-2.0),
+   zipp 3.23.1 (MIT), pyinstaller-hooks-contrib 2026.8
+   (GPL-2.0-or-later WITH PyInstaller bootloader exception OR Apache-2.0,
+   at the recipient's option).
+   pip, setuptools and wheel were used only at build time and are not
+   distributed inside this image.
+
+Build-time-only components (Ubuntu 20.04 toolchain, proot, appimagetool,
+squashfs-tools) are not distributed in this AppImage and are therefore not
+listed above.

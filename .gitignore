@@ -1,0 +1,7 @@
+.build-venv/
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
+CreativeStudio-x86_64.AppImage

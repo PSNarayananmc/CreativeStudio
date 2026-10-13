@@ -5,6 +5,10 @@ from creative_studio.ui import Window
 
 
 def main():
+    import os
+    if os.environ.get('CREATIVE_STUDIO_SMOKE'):  # packaged self-test mode
+        from creative_studio.smoke import run_smoke
+        return run_smoke()
     app = QApplication(sys.argv)
     app.setApplicationName('Creative Studio')
     app.setOrganizationName('CreativeStudio')

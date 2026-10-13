@@ -4,13 +4,40 @@ Original Python / Qt / FFmpeg video editor for Ubuntu. This is newly written
 source, not a converted EXE, Adobe product, or Premiere clone. It includes no
 Adobe code, installers, accounts, activation or branding.
 
-## Run from source
+## Install (AppImage, Ubuntu 20.04+)
 
-Target: Ubuntu 22.04 / 24.04 x86_64, Python 3.10 or newer.
+`CreativeStudio-x86_64.AppImage` is built and tested on an Ubuntu 20.04.5
+x86_64 userland (glibc 2.31) and bundles its own Python 3.9, PySide6/Qt 6.8.3,
+FFmpeg and FFprobe (H.264/libx264 + AAC). It does not use your system Python,
+FFmpeg, or build directory, and can run from any location.
 
 ```bash
-sudo apt install python3-venv ffmpeg libxcb-cursor0 libxkbcommon-x11-0 libegl1 libopengl0
-python3 -m venv .venv
+chmod +x CreativeStudio-x86_64.AppImage
+./CreativeStudio-x86_64.AppImage            # requires FUSE (libfuse2)
+./CreativeStudio-x86_64.AppImage --appimage-extract-and-run   # FUSE-free
+```
+
+Standard Ubuntu 20.04 desktop libraries (X11, ALSA, fontconfig, NSS) are used
+from the system. With no audio device the app starts in silent-preview mode.
+A self-test is built in:
+
+```bash
+QT_QPA_PLATFORM=offscreen CREATIVE_STUDIO_SMOKE=1 CREATIVE_STUDIO_SMOKE_OUT=/tmp \
+  ./CreativeStudio-x86_64.AppImage --appimage-extract-and-run
+```
+
+It exits 0 and writes `smoke-summary.json` after verifying import, preview
+render, undo/redo, inspector apply, 1080p H.264+AAC export and project save.
+See TEST-REPORT.md for the full recorded test matrix.
+
+## Run from source
+
+Target: Ubuntu 20.04+ x86_64. On 20.04 use Python 3.9 (PySide6 6.8 supports
+it); on 22.04+ use the default python3.
+
+```bash
+sudo apt install python3.9-venv ffmpeg libxcb-cursor0 libxkbcommon-x11-0 libegl1 libopengl0
+python3.9 -m venv .venv   # python3 -m venv .venv on 22.04+
 .venv/bin/python -m pip install -r requirements.txt
 CREATIVE_STUDIO_PYTHON="$PWD/.venv/bin/python" ./run.sh
 ```
@@ -64,29 +91,48 @@ See VALIDATION.md for checks actually performed. ZAI_PROMPT.md covers GUI checks
 
 ## AppImage build recipe
 
-Build on Ubuntu 22.04 x86_64 to keep the glibc baseline compatible with 24.04.
-Supply trusted static ffmpeg/ffprobe (libx264 and AAC support), plus appimagetool.
-Verify provider checksums and licenses. Dynamic binaries are rejected because
-copying them alone does not bundle their shared libraries.
+Build on Ubuntu 20.04 x86_64 (glibc 2.31) so the bundled binaries stay
+compatible with the 20.04 baseline; newer hosts produce binaries that 20.04
+cannot load. A faithful 20.04 build environment on any Linux host:
 
 ```bash
-FFMPEG_STATIC=/absolute/path/ffmpeg \
-FFPROBE_STATIC=/absolute/path/ffprobe \
-APPIMAGETOOL=/absolute/path/appimagetool \
-./build_appimage.sh
+# 1. Ubuntu 20.04.5 base userland (no root needed via proot)
+curl -LO https://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.5-base-amd64.tar.gz
+mkdir rootfs && tar -xzf ubuntu-base-20.04.5-base-amd64.tar.gz -C rootfs
+curl -LO https://github.com/proot-me/proot/releases/download/v5.5.0/proot  # verify SHA256SUMS
+chmod +x proot
+# 2. Toolchain inside the 20.04 rootfs
+./proot -0 -r rootfs -b /dev -b /proc -b /sys -w / /bin/sh -c '
+  apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  python3.9 python3.9-venv python3-pip libgl1 libegl1 libxkbcommon0 \
+  libfontconfig1 libdbus-1-3 libglib2.0-0 libpulse0 fonts-dejavu-core \
+  libasound2 libxrandr2 libxi6 libxrender1 libxtst6 libxcomposite1 \
+  libxdamage1 libnss3 libnspr4 file desktop-file-utils ca-certificates \
+  libgssapi-krb5-2 libpython3.9'
+# 3. Build (from the source checkout inside the rootfs)
+./proot -0 -r rootfs -b /dev -b /proc -b /sys -w /opt/creative-studio-src /bin/sh -c '
+  PATH=/opt/ffmpeg-static/bin:$PATH FFMPEG_STATIC=/opt/ffmpeg-static/bin/ffmpeg \
+  FFPROBE_STATIC=/opt/ffmpeg-static/bin/ffprobe APPIMAGETOOL=/opt/appimagetool-x86_64.AppImage \
+  PYTHON=python3.9 ./build_appimage.sh'
 ```
 
+Supply trusted FFmpeg/FFprobe (libx264 and AAC; the script audits that they
+only link core glibc runtime libraries and require no glibc symbols newer
+than 2.31 / GLIBCXX newer than 3.4.28) plus appimagetool. Verify provider
+checksums and record the digests (see TEST-REPORT.md).
+
 The script builds a PyInstaller one-folder bundle with PySide6 plugins, adds
-media tools and invokes appimagetool. It does not download opaque executables
-or install system packages. FUSE-free launch:
+media tools and third-party license notices, and invokes appimagetool. It does
+not download opaque executables or install system packages. FUSE-free launch:
 
 ```bash
 ./CreativeStudio-x86_64.AppImage --appimage-extract-and-run
 ```
 
-Build recipe supplied; AppImage build and desktop testing not performed here.
-Verify on target machines before distributing. Include third-party notices and
-source offers required by the actual Qt/FFmpeg binaries you distribute.
+The 0.1.0 AppImage was built and validated on an Ubuntu 20.04.5 userland; see
+TEST-REPORT.md for results and the honest list of what could not be tested in
+a container (FUSE mount launch, real X11 interaction, audible playback).
+Verify on target machines before distributing.
 
 References: https://doc.qt.io/qtforpython-6/PySide6/QtMultimedia/QAudioOutput.html
 and https://pyinstaller.org/en/stable/usage.html .
