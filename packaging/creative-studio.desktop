@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Creative Studio
+Comment=Independent timeline video editor
+Exec=AppRun
+Icon=creative-studio
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
