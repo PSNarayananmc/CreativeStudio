@@ -16,6 +16,32 @@ from .model import Clip, save_project, load_project
 from .render import probe, render, Cancelled
 
 
+class TimelineList(QListWidget):
+    """Timeline list whose internal drag moves update the owning Window.
+
+    QListWidget implements InternalMove drops as remove+insert, so the model
+    only emits rowsRemoved/rowsInserted - never rowsMoved. Relying on
+    rowsMoved silently dropped clip reordering, so drops are handled here.
+    """
+
+    def __init__(self, window):
+        super().__init__()
+        self._window = window
+        self.setFlow(QListWidget.Flow.LeftToRight)
+        self.setWrapping(False)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setMaximumHeight(120)
+
+    def dropEvent(self, event):
+        super().dropEvent(event)
+        # InternalMove drops land here only when super() accepted them; any
+        # foreign or invalid drop stays unaccepted and must not rebuild the
+        # clip list.
+        if event.isAccepted() and event.proposedAction() == Qt.DropAction.MoveAction:
+            self._window.reordered()
+
+
 class RenderJob(QThread):
     progress = Signal(int)
     succeeded = Signal(str)
@@ -108,14 +134,8 @@ class Window(QMainWindow):
         apply_button.clicked.connect(self.apply_clip); form.addRow(apply_button)
         splitter.addWidget(self.inspector); splitter.setSizes([220, 780, 280])
         layout.addWidget(QLabel('TIMELINE · Drag to reorder · Splits use the rendered preview playhead'))
-        self.timeline = QListWidget()
-        self.timeline.setFlow(QListWidget.Flow.LeftToRight)
-        self.timeline.setWrapping(False)
-        self.timeline.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.timeline.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.timeline.setMaximumHeight(120)
+        self.timeline = TimelineList(self)
         self.timeline.currentRowChanged.connect(self.select_clip)
-        self.timeline.model().rowsMoved.connect(self.reordered)
         layout.addWidget(self.timeline)
         footer = QHBoxLayout()
         self.progress = QProgressBar(); self.progress.setRange(0, 100)
@@ -157,7 +177,9 @@ class Window(QMainWindow):
         self.dirty = True; self.preview_ready = False
         self.player.stop(); self.player.setSource(QUrl())
         self.preview_label.setText('Preview out of date · Click Render preview')
-        self.setWindowTitle('Creative Studio *')
+        name = Path(self.project_path).name if self.project_path else None
+        base = f'Creative Studio · {name}' if name else 'Creative Studio'
+        self.setWindowTitle(f'{base} *')
 
     def refresh(self, selected=0):
         self.timeline.clear()

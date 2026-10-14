@@ -67,16 +67,43 @@ def save_project(path, clips):
             os.unlink(temporary)
 
 
+CLIP_FIELDS = ('path', 'start', 'end', 'speed', 'fade_in', 'fade_out',
+               'brightness', 'contrast', 'saturation', 'volume')
+
+
 def load_project(path):
     target = Path(path).resolve()
-    data = json.loads(target.read_text())
+    try:
+        text = target.read_text()
+    except OSError as exc:
+        raise ValueError(f'Cannot read project file {target}: {exc.strerror}') from exc
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'Not a valid project file: {target.name}, '
+                         f'line {exc.lineno}: {exc.msg}') from exc
+    if not isinstance(data, dict):
+        raise ValueError('Project file must contain a JSON object.')
     if data.get('format') != 'creative-studio' or data.get('version') != 1:
         raise ValueError('Unsupported project format.')
+    raw = data.get('clips')
+    if not isinstance(raw, list):
+        raise ValueError("Project file has no valid 'clips' list.")
     clips = []
-    for item in data['clips']:
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise ValueError(f'Clip {index + 1} is not an object.')
+        unknown = set(item) - set(CLIP_FIELDS)
+        if unknown:
+            raise ValueError(f"Clip {index + 1} has unknown fields: {', '.join(sorted(unknown))}.")
+        if not isinstance(item.get('path'), str) or not item['path']:
+            raise ValueError(f'Clip {index + 1} has no media path.')
         item = dict(item)
         item['path'] = str((target.parent / item['path']).resolve())
-        clip = Clip(**item)
+        try:
+            clip = Clip(**item)
+        except TypeError as exc:
+            raise ValueError(f'Clip {index + 1} is malformed: {exc}') from exc
         clip.validate()
         clips.append(clip)
     return clips

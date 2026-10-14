@@ -47,6 +47,23 @@ def tempo(speed):
     return ','.join(filters)
 
 
+def progress_seconds(line):
+    """Out time in seconds from one 'ffmpeg -progress' line, or None.
+
+    ffmpeg 4.4+ emits out_time_us (microseconds). Older releases such as
+    Ubuntu 20.04's 4.2 only emit out_time_ms, which historically also carries
+    microseconds despite its name. Accepting both keeps progress bars working
+    across the FFmpeg versions this editor may be packaged with.
+    """
+    key, _, value = line.strip().partition('=')
+    if key not in ('out_time_us', 'out_time_ms'):
+        return None
+    try:
+        return float(value) / 1e6
+    except ValueError:
+        return None
+
+
 class Cancelled(Exception):
     pass
 
@@ -70,9 +87,10 @@ def run_ffmpeg(args, duration, callback, cancel):
         watcher.start()
         try:
             for line in process.stdout:
-                if line.startswith('out_time_us='):
+                seconds = progress_seconds(line)
+                if seconds is not None:
                     try:
-                        callback(min(0.99, max(0, float(line.split('=')[1]) / 1e6 / duration)))
+                        callback(min(0.99, max(0, seconds / duration)))
                     except ValueError:
                         pass
             result = process.wait()
@@ -86,6 +104,39 @@ def run_ffmpeg(args, duration, callback, cancel):
         if result:
             log.seek(0)
             raise RuntimeError(log.read()[-4000:] or 'FFmpeg failed.')
+
+
+def clip_args(clip, part, width, height, fps, has_audio):
+    """FFmpeg argument array that renders one clip to a part file.
+
+    Video and audio chains go through a single -filter_complex graph. Passing
+    -vf and -af separately makes FFmpeg 4.x print a spurious 'ignoring
+    remaining -vf options' warning, which would pollute the error text shown
+    to users when a render fails for an unrelated reason. Argument arrays are
+    used throughout; media paths are never shell-interpolated.
+    """
+    vf = (f'setpts=(PTS-STARTPTS)/{clip.speed:.9g},'
+          f'scale={width}:{height}:force_original_aspect_ratio=decrease,'
+          f'pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},'
+          f'eq=brightness={clip.brightness}:contrast={clip.contrast}:saturation={clip.saturation},'
+          'format=yuv420p')
+    af = f'asetpts=PTS-STARTPTS,{tempo(clip.speed)},volume={clip.volume}'
+    for kind, length, start in [('in', clip.fade_in, 0),
+                                ('out', clip.fade_out, clip.duration-clip.fade_out)]:
+        if length > 0:
+            vf += f',fade=t={kind}:st={start:.9g}:d={length:.9g}'
+            af += f',afade=t={kind}:st={start:.9g}:d={length:.9g}'
+    af += f',apad,atrim=duration={clip.duration:.9g}'
+    args = ['-ss', str(clip.start), '-t', str(clip.end-clip.start), '-i', clip.path]
+    if not has_audio:
+        args += ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']
+    audio_in = '0:a' if has_audio else '1:a'
+    graph = f'[0:v]{vf}[vout];[{audio_in}]{af}[aout]'
+    args += ['-filter_complex', graph,
+             '-map', '[vout]', '-map', '[aout]', '-t', str(clip.duration),
+             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+             '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-threads', '2', str(part)]
+    return args
 
 
 def render(clips, output, width=1920, height=1080, fps=30, progress=lambda v: None, cancel=None):
@@ -111,24 +162,7 @@ def render(clips, output, width=1920, height=1080, fps=30, progress=lambda v: No
             if c.end > duration + 0.05:
                 raise ValueError(f'Trim exceeds source duration: {c.path}')
             part = Path(temp) / f'part-{i:06d}.mp4'
-            vf = (f'setpts=(PTS-STARTPTS)/{c.speed:.9g},'
-                  f'scale={width}:{height}:force_original_aspect_ratio=decrease,'
-                  f'pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},'
-                  f'eq=brightness={c.brightness}:contrast={c.contrast}:saturation={c.saturation},'
-                  'format=yuv420p')
-            af = f'asetpts=PTS-STARTPTS,{tempo(c.speed)},volume={c.volume}'
-            for kind, length, start in [('in', c.fade_in, 0), ('out', c.fade_out, c.duration-c.fade_out)]:
-                if length > 0:
-                    vf += f',fade=t={kind}:st={start:.9g}:d={length:.9g}'
-                    af += f',afade=t={kind}:st={start:.9g}:d={length:.9g}'
-            af += f',apad,atrim=duration={c.duration:.9g}'
-            args = ['-ss', str(c.start), '-t', str(c.end-c.start), '-i', c.path]
-            if not audio:
-                args += ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo']
-            args += ['-map', '0:v:0', '-map', '0:a:0' if audio else '1:a:0',
-                     '-vf', vf, '-af', af, '-t', str(c.duration),
-                     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
-                     '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-threads', '2', str(part)]
+            args = clip_args(c, part, width, height, fps, audio)
             base = completed
             run_ffmpeg(args, c.duration,
                        lambda value: progress(0.95*(base+value*c.duration)/total), cancel)
